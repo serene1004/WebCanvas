@@ -15,6 +15,7 @@ import {
   RotateCcw,
   SlidersHorizontal,
   Undo2,
+  X,
 } from 'lucide-vue-next';
 import { useEditor } from '../composables/useEditor';
 
@@ -44,6 +45,7 @@ const {
   hoverImage,
   eraserGuide,
   inspectorOpen,
+  isImporting,
   hasImage,
   hasDocument,
   canImportProject,
@@ -242,6 +244,7 @@ function clearCanvasHover() {
             height: `${eraserGuide.size}px`,
           }"
         />
+        <p v-if="isImporting" class="importing-image" role="status">Preparing image…</p>
       </section>
 
       <button
@@ -263,6 +266,14 @@ function clearCanvasHover() {
         ]"
         aria-label="Image settings"
       >
+        <button
+          class="mobile-inspector-close"
+          type="button"
+          aria-label="Close settings"
+          @click="inspectorOpen = false"
+        >
+          <X :size="18" />
+        </button>
         <template v-if="hasImage">
           <div class="panel-title"><SlidersHorizontal :size="16" /> Adjust</div>
           <label
@@ -372,7 +383,7 @@ function clearCanvasHover() {
     ref="imageInput"
     class="visually-hidden"
     type="file"
-    accept="image/*"
+    accept="image/*,.heic,.heif"
     multiple
     @change="onImagePick"
   />

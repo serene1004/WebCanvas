@@ -315,6 +315,17 @@ input:focus-visible {
   border-radius: 50%;
   background: rgb(255 255 255 / 0.12);
 }
+.importing-image {
+  position: absolute;
+  z-index: 3;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgb(44 42 61 / 0.88);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
 .drop-empty {
   display: grid;
   justify-items: center;
@@ -355,6 +366,9 @@ input:focus-visible {
   background: #fff;
 }
 .mobile-inspector-toggle {
+  display: none;
+}
+.mobile-inspector-close {
   display: none;
 }
 .panel-title {
@@ -506,12 +520,13 @@ input:focus-visible {
 }
 @media (max-width: 760px) {
   .editor-shell {
-    grid-template-rows: 60px minmax(0, 1fr) 48px;
+    grid-template-rows: 56px minmax(0, 1fr) 48px;
+    height: 100svh;
   }
   .topbar {
     min-width: 0;
     gap: 10px;
-    padding: 0 max(14px, env(safe-area-inset-right)) 0 max(14px, env(safe-area-inset-left));
+    padding: 0 max(18px, env(safe-area-inset-right)) 0 max(18px, env(safe-area-inset-left));
   }
   .brand { font-size: 16px; }
   .brand-mark { width: 23px; height: 23px; }
@@ -520,6 +535,7 @@ input:focus-visible {
   }
   .header-actions {
     margin-left: auto;
+    flex: 0 0 75px;
   }
   .header-actions .button-quiet {
     position: relative;
@@ -583,6 +599,9 @@ input:focus-visible {
   .inspector {
     display: none;
   }
+  .inspector.is-draw {
+    display: none;
+  }
   .inspector.is-mobile-open {
     position: absolute;
     right: 8px;
@@ -597,10 +616,30 @@ input:focus-visible {
     border-radius: 12px;
     box-shadow: 0 -10px 30px rgb(45 39 76 / 0.16);
   }
+  .inspector.is-draw.is-mobile-open {
+    display: flex;
+  }
+  .inspector.is-mobile-open .mobile-inspector-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 1;
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border: 0;
+    border-radius: 7px;
+    background: #f7f6fb;
+    color: #4e4b61;
+  }
+  .inspector.is-mobile-open .panel-title {
+    padding-right: 34px;
+  }
   .mobile-inspector-toggle {
     position: absolute;
-    right: 12px;
-    bottom: 74px;
+    top: 14px;
+    right: 14px;
     z-index: 4;
     display: inline-flex;
     align-items: center;
@@ -642,7 +681,6 @@ input:focus-visible {
   }
   .home-hero {
     grid-template-columns: 1fr;
-    gap: 38px;
     gap: 32px;
     padding: 42px 24px 34px;
   }

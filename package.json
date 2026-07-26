@@ -21,6 +21,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "heic-to": "^1.5.2",
     "lucide-vue-next": "^0.468.0",
     "vue": "^3.5.13",
     "vue-router": "^5.2.0"

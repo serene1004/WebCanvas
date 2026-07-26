@@ -83,9 +83,17 @@ type Project = {
 };
 
 const MAX_OVERLAY_LAYERS = 1;
-const MAX_IMAGE_BYTES = 16 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 32 * 1024 * 1024;
 const MAX_IMAGE_PIXELS = 16_000_000;
 const STROKE_PREFIX = 'stroke:';
+let fallbackId = 0;
+
+function createId() {
+  return (
+    globalThis.crypto?.randomUUID?.() ||
+    `${Date.now().toString(36)}-${++fallbackId}-${Math.random().toString(36).slice(2)}`
+  );
+}
 type Filters = {
   brightness: number;
   contrast: number;
@@ -155,6 +163,7 @@ export function useEditor() {
   const hoverImage = ref(false);
   const eraserGuide = ref<{ x: number; y: number; size: number } | null>(null);
   const inspectorOpen = ref(false);
+  const isImporting = ref(false);
 
   const hasImage = computed(() => !!source.value);
   const hasDocument = computed(
@@ -183,8 +192,11 @@ export function useEditor() {
     const value = filters.value;
     return `brightness(${value.brightness}%) contrast(${value.contrast}%) saturate(${value.saturate}%) blur(${value.blur}px) hue-rotate(${value.hue}deg)`;
   });
+  const supportsCanvasFilter =
+    'filter' in (document.createElement('canvas').getContext('2d') || {});
   const canvasStyle = computed(() => ({
     transform: `translate(${pan.value.x}px, ${pan.value.y}px) scale(${zoom.value})`,
+    filter: supportsCanvasFilter ? undefined : filterValue.value,
   }));
 
   const cloneStrokes = (value: Stroke[]) =>
@@ -287,7 +299,7 @@ export function useEditor() {
     element.height = height;
     context.clearRect(0, 0, element.width, element.height);
     if (image) {
-      context.filter = filterValue.value;
+      if (supportsCanvasFilter) context.filter = filterValue.value;
       context.drawImage(image, 0, 0);
     } else {
       context.fillStyle = '#ffffff';
@@ -513,8 +525,16 @@ export function useEditor() {
     context.beginPath();
     context.arc(point.x, point.y, radius, 0, Math.PI * 2);
     context.clip();
-    context.filter = `blur(${strength}px)`;
-    context.drawImage(blur, 0, 0, width, height, left, top, width, height);
+    if (supportsCanvasFilter) {
+      context.filter = `blur(${strength}px)`;
+      context.drawImage(blur, 0, 0, width, height, left, top, width, height);
+    } else {
+      const offset = Math.max(1, Math.round(strength / 3));
+      context.globalAlpha = 1 / 9;
+      for (const x of [-offset, 0, offset])
+        for (const y of [-offset, 0, offset])
+          context.drawImage(blur, 0, 0, width, height, left + x, top + y, width, height);
+    }
     context.restore();
   }
 
@@ -677,6 +697,7 @@ export function useEditor() {
 
   function pointerDown(event: PointerEvent) {
     if (!hasDocument.value || spaceHeld.value) return;
+    event.preventDefault();
     const point = pointFrom(event);
     if (!point) return;
     if (activeTool.value === 'select') {
@@ -710,9 +731,7 @@ export function useEditor() {
           top: bounds.y,
           snapshotted: false,
         };
-        (event.currentTarget as HTMLCanvasElement).setPointerCapture(
-          event.pointerId,
-        );
+        capturePointer(event);
       } else {
         useTool('pen');
         return;
@@ -720,12 +739,10 @@ export function useEditor() {
       scheduleRender();
       return;
     }
-    (event.currentTarget as HTMLCanvasElement).setPointerCapture(
-      event.pointerId,
-    );
+    capturePointer(event);
     snapshot();
     drawing.value = {
-      id: crypto.randomUUID(),
+      id: createId(),
       tool: activeTool.value,
       color: brushColor.value,
       size: activeSize.value,
@@ -751,7 +768,7 @@ export function useEditor() {
   function stagePointerDown(event: PointerEvent) {
     if (!hasDocument.value || !spaceHeld.value) return;
     event.preventDefault();
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    capturePointer(event);
     panDrag = { x: event.clientX, y: event.clientY, pan: { ...pan.value } };
   }
 
@@ -787,6 +804,7 @@ export function useEditor() {
   }
 
   function pointerMove(event: PointerEvent) {
+    if (drawing.value || overlayDrag) event.preventDefault();
     updateEraserGuide(event);
     if (overlayDrag) {
       const point = pointFrom(event);
@@ -935,10 +953,15 @@ export function useEditor() {
     if (editorMode.value === 'draw') render();
   }
 
+  function capturePointer(event: PointerEvent) {
+    try {
+      (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+    } catch {}
+  }
+
   async function readImage(file: File) {
-    if (!file.type.startsWith('image/')) return;
     if (file.size > MAX_IMAGE_BYTES) {
-      window.alert('Choose an image smaller than 16 MB.');
+      window.alert('Choose an image smaller than 32 MB.');
       return;
     }
     if (
@@ -946,26 +969,39 @@ export function useEditor() {
       overlayLayers.value.length >= MAX_OVERLAY_LAYERS
     )
       return;
+    let imageFile = file;
     let data: string;
     let image: HTMLImageElement;
     try {
-      data = await fileToDataUrl(file);
-      image = new Image();
-      image.src = data;
-      await image.decode();
+      ({ data, image } = await openImageFile(imageFile));
     } catch {
-      window.alert('This image could not be opened.');
-      return;
+      try {
+        imageFile = await normalizeImageFile(file);
+        ({ data, image } = await openImageFile(imageFile));
+      } catch {
+        window.alert('This image could not be opened.');
+        return;
+      }
     }
     if (image.naturalWidth * image.naturalHeight > MAX_IMAGE_PIXELS) {
-      window.alert('Choose an image with 16 megapixels or fewer.');
-      return;
+      try {
+        imageFile = await imageFileFromSource(
+          image,
+          image.naturalWidth,
+          image.naturalHeight,
+          imageFile.name,
+        );
+        ({ data, image } = await openImageFile(imageFile));
+      } catch {
+        window.alert('This image is too large to prepare on this device.');
+        return;
+      }
     }
     if (editorMode.value === 'draw') {
-      const id = crypto.randomUUID();
+      const id = createId();
       overlayLayers.value.push({
         id,
-        name: file.name,
+        name: imageFile.name,
         image,
         data,
         position: { x: 0.5, y: 0.5 },
@@ -983,8 +1019,8 @@ export function useEditor() {
       return;
     }
     const document: ImageDocument = {
-      id: crypto.randomUUID(),
-      name: file.name.replace(/\.[^.]+$/, '') || 'Untitled canvas',
+      id: createId(),
+      name: imageFile.name.replace(/\.[^.]+$/, '') || 'Untitled canvas',
       image,
       data,
       filters: {
@@ -1001,6 +1037,62 @@ export function useEditor() {
     imageDocuments.value.push(document);
     editorMode.value = 'image';
     await selectImageDocument(document.id);
+  }
+
+  async function normalizeImageFile(file: File): Promise<File> {
+    const isHeicCandidate =
+      file.type === 'image/heic' ||
+      file.type === 'image/heif' ||
+      /\.hei[cf]$/i.test(file.name);
+    if (!isHeicCandidate) throw new Error('Unsupported file');
+    const { heicTo, isHeic } = await import('heic-to');
+    if (!(await isHeic(file))) return file;
+    const bitmap = await heicTo({ blob: file, type: 'bitmap' });
+    try {
+      return await imageFileFromSource(bitmap, bitmap.width, bitmap.height, file.name);
+    } finally {
+      bitmap.close();
+    }
+  }
+
+  async function openImageFile(file: File) {
+    if (!file.type.startsWith('image/')) throw new Error('Unsupported file');
+    const data = await fileToDataUrl(file);
+    const image = new Image();
+    image.src = data;
+    await image.decode();
+    return { data, image };
+  }
+
+  function imageFileFromSource(
+    source: CanvasImageSource,
+    width: number,
+    height: number,
+    name: string,
+  ): Promise<File> {
+    const scale = Math.sqrt(
+      Math.min(1, MAX_IMAGE_PIXELS / (width * height)),
+    );
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.floor(width * scale);
+    canvas.height = Math.floor(height * scale);
+    const context = canvas.getContext('2d');
+    if (!context) return Promise.reject(new Error('Resize failed'));
+    context.drawImage(source, 0, 0, canvas.width, canvas.height);
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (blob) =>
+          blob
+            ? resolve(
+                new File([blob], `${name.replace(/\.[^.]+$/, '') || 'image'}.jpg`, {
+                  type: 'image/jpeg',
+                }),
+              )
+            : reject(new Error('Resize failed')),
+        'image/jpeg',
+        0.9,
+      );
+    });
   }
 
   function fileToDataUrl(file: File): Promise<string> {
@@ -1048,18 +1140,24 @@ export function useEditor() {
     const input = event.target as HTMLInputElement;
     const files = Array.from(input.files || []);
     input.value = '';
-    if (editorMode.value !== 'draw') {
-      for (const file of files) await readImage(file);
-      return;
+    if (!files.length) return;
+    isImporting.value = true;
+    try {
+      if (editorMode.value !== 'draw') {
+        for (const file of files) await readImage(file);
+        return;
+      }
+      if (overlayLayers.value.length) {
+        window.alert('Free draw supports one placed image.');
+        return;
+      }
+      const available = MAX_OVERLAY_LAYERS - overlayLayers.value.length;
+      if (files.length > available)
+        window.alert(`You can add up to ${MAX_OVERLAY_LAYERS} image layers.`);
+      for (const file of files.slice(0, available)) await readImage(file);
+    } finally {
+      isImporting.value = false;
     }
-    if (overlayLayers.value.length) {
-      window.alert('Free draw supports one placed image.');
-      return;
-    }
-    const available = MAX_OVERLAY_LAYERS - overlayLayers.value.length;
-    if (files.length > available)
-      window.alert(`You can add up to ${MAX_OVERLAY_LAYERS} image layers.`);
-    for (const file of files.slice(0, available)) await readImage(file);
   }
 
   async function loadProject(file: File) {
@@ -1093,7 +1191,7 @@ export function useEditor() {
           overlay.src = saved.data;
           await overlay.decode();
           return {
-            id: crypto.randomUUID(),
+            id: createId(),
             name: saved.name || 'Image layer',
             image: overlay,
             data: saved.data,
@@ -1122,7 +1220,7 @@ export function useEditor() {
       filters.value = { ...filters.value, ...project.filters };
       strokes.value = project.strokes.map((stroke) => ({
         ...stroke,
-        id: stroke.id || crypto.randomUUID(),
+        id: stroke.id || createId(),
       }));
       const defaultOrder = [
         ...overlays.map((_, index) => index),
@@ -1149,7 +1247,7 @@ export function useEditor() {
             documentImage.src = saved.image;
             await documentImage.decode();
             return {
-              id: crypto.randomUUID(),
+              id: createId(),
               name: saved.name,
               image: documentImage,
               data: saved.image,
@@ -1168,7 +1266,7 @@ export function useEditor() {
       }
       if (image) {
         const document = {
-          id: crypto.randomUUID(),
+          id: createId(),
           name: imageName.value,
           image,
           data: project.image || '',
@@ -1353,6 +1451,7 @@ export function useEditor() {
     hoverImage,
     eraserGuide,
     inspectorOpen,
+    isImporting,
     hasImage,
     hasDocument,
     canImportProject,
