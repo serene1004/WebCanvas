@@ -5,5 +5,5 @@ services:
       dockerfile: Dockerfile
     image: webcanvas:latest
     ports:
-      - '4081:80'
+      - '4090:80'
     restart: unless-stopped
