@@ -41,4 +41,4 @@ pnpm build
 docker compose up --build
 ```
 
-실행 후 [http://localhost:4081](http://localhost:4081)에서 엽니다.
+실행 후 [http://localhost:4090/WebCanvas/](http://localhost:4090/WebCanvas/)에서 엽니다.
