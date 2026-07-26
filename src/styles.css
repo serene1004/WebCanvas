@@ -490,13 +490,31 @@ input:focus-visible {
   clip-path: inset(50%);
   white-space: nowrap;
 }
-@media (max-width: 760px) {
-  .editor-shell {
-    grid-template-rows: 56px minmax(0, 1fr) 38px;
+@media (min-width: 761px) and (max-width: 1023px) {
+  .editor {
+    grid-template-columns: 52px minmax(0, 1fr) 220px;
+  }
+  .toolbar {
+    padding: 9px;
+  }
+  .stage {
+    padding: 28px;
   }
   .topbar {
-    gap: 10px;
+    gap: 14px;
   }
+}
+@media (max-width: 760px) {
+  .editor-shell {
+    grid-template-rows: 60px minmax(0, 1fr) 48px;
+  }
+  .topbar {
+    min-width: 0;
+    gap: 10px;
+    padding: 0 max(14px, env(safe-area-inset-right)) 0 max(14px, env(safe-area-inset-left));
+  }
+  .brand { font-size: 16px; }
+  .brand-mark { width: 23px; height: 23px; }
   .document-name {
     display: none;
   }
@@ -504,7 +522,9 @@ input:focus-visible {
     margin-left: auto;
   }
   .header-actions .button-quiet {
+    position: relative;
     width: 34px;
+    min-height: 34px;
     padding: 0;
   }
   .header-actions .button-quiet svg {
@@ -514,42 +534,78 @@ input:focus-visible {
     font-size: 0;
   }
   .header-actions .button-primary {
+    position: relative;
     font-size: 0;
     width: 34px;
+    min-height: 34px;
     padding: 0;
+  }
+  .header-actions .button svg {
+    position: absolute;
+    inset: 0;
+    margin: auto;
   }
   .editor {
     position: relative;
-    grid-template-columns: 48px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
   .editor.is-image-empty {
     grid-template-columns: minmax(0, 1fr);
   }
   .toolbar {
-    padding: 7px;
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
+    z-index: 3;
+    flex-direction: row;
+    justify-content: center;
+    gap: 4px;
+    max-width: calc(100% - 20px);
+    padding: 6px;
+    overflow-x: auto;
+    border: 1px solid #e7e6f0;
+    border-radius: 10px;
+    box-shadow: 0 5px 18px rgb(45 39 76 / 0.14);
+    -webkit-overflow-scrolling: touch;
+  }
+  .toolbar button {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+  }
+  .toolbar span {
+    flex: 0 0 1px;
+    width: 1px;
+    height: 28px;
+    margin: 0 3px;
   }
   .inspector {
     display: none;
   }
   .inspector.is-mobile-open {
     position: absolute;
-    right: 0;
-    bottom: 0;
-    z-index: 3;
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    z-index: 5;
     display: block;
-    width: min(300px, calc(100vw - 48px));
-    max-height: min(70vh, 520px);
+    width: auto;
+    max-height: min(72vh, 560px);
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+    border: 1px solid #e7e6f0;
+    border-radius: 12px;
     box-shadow: 0 -10px 30px rgb(45 39 76 / 0.16);
   }
   .mobile-inspector-toggle {
     position: absolute;
     right: 12px;
-    bottom: 12px;
+    bottom: 74px;
     z-index: 4;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    min-height: 36px;
+    min-height: 44px;
     border: 1px solid #e3e2eb;
     border-radius: 7px;
     padding: 0 10px;
@@ -560,24 +616,35 @@ input:focus-visible {
     box-shadow: 0 4px 12px rgb(45 39 76 / 0.12);
   }
   .stage {
-    padding: 22px;
+    grid-column: 1;
+    padding: 16px;
   }
   .statusbar {
-    padding: 0 9px;
+    padding: 0 max(10px, env(safe-area-inset-right)) 0 max(10px, env(safe-area-inset-left));
   }
   .statusbar > span {
-    max-width: 58%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    display: none;
+  }
+  .statusbar > div {
+    width: 100%;
+    justify-content: center;
+    gap: 10px;
+  }
+  .statusbar button {
+    width: 44px;
+    height: 44px;
   }
   .home-shell {
-    grid-template-rows: 56px minmax(0, 1fr) 36px;
+    grid-template-rows: 56px auto auto;
+    min-height: 100svh;
+    height: auto;
+    overflow: visible;
   }
   .home-hero {
     grid-template-columns: 1fr;
     gap: 38px;
-    padding: 36px 26px;
+    gap: 32px;
+    padding: 42px 24px 34px;
   }
   .hero-copy h1 {
     font-size: clamp(42px, 13vw, 62px);
@@ -585,10 +652,26 @@ input:focus-visible {
   .home-footer span:last-child {
     display: none;
   }
+  .home-footer {
+    min-height: 42px;
+    padding: 10px 18px calc(10px + env(safe-area-inset-bottom));
+  }
+  .hero-button {
+    flex: 1 1 170px;
+    min-height: 48px;
+  }
   .mode-options {
     grid-template-columns: 1fr;
   }
   .mode-options button {
     min-height: auto;
   }
+}
+
+@media (max-width: 380px) {
+  .brand { font-size: 0; }
+  .header-actions { gap: 3px; }
+  .toolbar { justify-content: flex-start; }
+  .drop-empty { padding: 0 12px; }
+  .empty-actions .button { width: 100%; min-height: 44px; }
 }
