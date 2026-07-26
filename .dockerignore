@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+.pnpm-store
+.agents
+.impeccable.md
+npm-debug.log*
+pnpm-debug.log*
+.env
+.env.*
+!.env.example
+*.log
+logs

@@ -1,0 +1,9 @@
+services:
+  webcanvas:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: webcanvas:latest
+    ports:
+      - '4081:80'
+    restart: unless-stopped

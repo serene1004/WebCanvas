@@ -1,0 +1,12 @@
+node_modules/
+.pnpm-store/
+dist/
+
+# Local environment values (keep .env.example trackable)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
